@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Çelik çatı projelerinin fotoğraftan otomatik maliyet hesaplama sistemi. AI destekli makas malzeme listesi okuma.">
+  <title>Çelik Çatı — Makas Hesaplama</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+</head>
+<body>
+  <div class="app-container">
+
+    <!-- Header -->
+    <header class="app-header">
+      <span class="logo-icon">🏗️</span>
+      <h1>Çelik Çatı Makas Hesap</h1>
+      <p>Makas fotoğrafını yükle → AI okusun → Düzenle → Maliyet hesapla → Export</p>
+      <div class="header-actions">
+        <button id="btnLoadProject" class="btn btn-ghost btn-sm">📂 Proje Yükle</button>
+        <button id="btnSaveProject" class="btn btn-ghost btn-sm">💾 Projeyi Kaydet</button>
+      </div>
+    </header>
+
+    <!-- Alert Messages -->
+    <div id="alertContainer">
+      <div id="alertError" class="alert alert-error"><span>❌</span><span id="alertErrorText"></span></div>
+      <div id="alertSuccess" class="alert alert-success"><span>✅</span><span id="alertSuccessText"></span></div>
+      <div id="alertWarning" class="alert alert-warning"><span>⚠️</span><span id="alertWarningText"></span></div>
+    </div>
+
+    <!-- =================== STEP 1: Upload Images =================== -->
+    <section class="card" id="uploadSection">
+      <div class="card-title">
+        <span class="icon">📸</span>
+        Makas Fotoğraflarını Yükle
+        <span class="badge" id="uploadCount">0 makas</span>
+      </div>
+
+      <p class="section-desc">
+        Her makas tipi için malzeme listesi tablosunun fotoğrafını veya ekran görüntüsünü yükleyin.
+        AI her fotoğrafı okuyup verileri otomatik çıkaracak. Sonrasında hücrelere tıklayarak düzeltebilirsiniz.
+      </p>
+
+      <div id="uploadZone" class="upload-zone">
+        <span class="upload-icon">📷</span>
+        <div class="upload-text">Makas fotoğrafını buraya sürükleyin</div>
+        <div class="upload-subtext">
+          veya <span>tıklayarak seçin</span> · JPG, PNG, BMP, WebP · Maks 20MB
+        </div>
+        <input type="file" id="fileInput" class="file-input" accept="image/*" multiple>
+      </div>
+
+      <div id="uploadedList" class="uploaded-list"></div>
+
+      <div class="action-buttons">
+        <button id="btnReadAll" class="btn btn-primary btn-lg" disabled>
+          🤖 Tüm Fotoğrafları AI ile Oku
+        </button>
+      </div>
+    </section>
+
+    <!-- =================== STEP 2: Loading =================== -->
+    <section id="loadingSection" class="loading-section">
+      <div class="card">
+        <div class="loading-content">
+          <div class="loading-spinner"></div>
+          <div class="loading-text" id="loadingText">Fotoğraflar okunuyor...</div>
+          <div class="loading-sub" id="loadingSub">AI tabloları analiz ediyor</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================== STEP 3: Per-Makas Data =================== -->
+    <section id="makasDataSection" class="makas-data-section">
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">📋</span>
+          Makas Verileri
+          <span class="badge" id="makasDataCount">0 makas</span>
+          <span class="edit-hint">✏️ Hücrelere tıklayarak düzenleyebilirsiniz</span>
+        </div>
+
+        <div id="makasTabs" class="makas-tabs"></div>
+        <div id="makasTablesContainer"></div>
+      </div>
+    </section>
+
+    <!-- =================== STEP 4: Merged Summary =================== -->
+    <section id="summarySection" class="summary-section">
+
+      <!-- Combined Material Order List -->
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">📦</span>
+          Birleşik Malzeme Sipariş Listesi
+        </div>
+        <p class="section-desc">
+          Tüm makaslardan aynı profiller birleştirildi. Sipariş için gereken toplam uzunluklar:
+        </p>
+
+        <div class="table-container">
+          <table class="data-table" id="mergedTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Profil / Kesit</th>
+                <th>Malzeme</th>
+                <th>Toplam Parça</th>
+                <th>Toplam Uzunluk (mm)</th>
+                <th>Toplam Uzunluk (m)</th>
+                <th>Toplam Ağırlık (kg)</th>
+              </tr>
+            </thead>
+            <tbody id="mergedTableBody"></tbody>
+            <tfoot>
+              <tr class="total-footer">
+                <td colspan="4" style="text-align:right; font-weight:700;">GENEL TOPLAM</td>
+                <td id="mergedTotalLengthMm" class="number highlight"></td>
+                <td id="mergedTotalLengthM" class="number highlight"></td>
+                <td id="mergedTotalWeight" class="number highlight"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <div class="action-buttons">
+          <button id="btnExportCSV" class="btn btn-secondary">📥 CSV İndir</button>
+        </div>
+      </div>
+
+      <!-- Per-Makas Weight Summary -->
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">⚖️</span>
+          Makas Bazlı Ağırlık Özeti
+        </div>
+        <div id="makasWeightSummary" class="makas-weight-grid"></div>
+      </div>
+
+      <!-- =================== Cost Calculator =================== -->
+      <div class="card">
+        <div class="card-title">
+          <span class="icon">💰</span>
+          Maliyet Hesaplama
+        </div>
+        <p class="section-desc">
+          Birim fiyatları düzenleyerek tahmini proje maliyetini hesaplayın.
+          Fiyatlar piyasa koşullarına göre güncelleyin.
+        </p>
+
+        <div class="cost-params">
+          <div class="param-group">
+            <label>Çelik Fiyatı (TL/kg)</label>
+            <input type="number" id="steelPrice" value="35" min="1" step="0.5">
+          </div>
+          <div class="param-group">
+            <label>İşçilik Çarpanı</label>
+            <input type="number" id="laborMult" value="1.0" min="0.5" max="3" step="0.1">
+          </div>
+          <div class="param-group">
+            <label>Fire Payı (%)</label>
+            <input type="number" id="wasteFactor" value="7" min="0" max="20" step="1">
+          </div>
+          <div class="param-group">
+            <label>Kar Marjı (%)</label>
+            <input type="number" id="profitMargin" value="15" min="0" max="50" step="1">
+          </div>
+        </div>
+
+        <div class="table-container" style="margin-top: var(--space-lg);">
+          <table class="data-table cost-table">
+            <thead>
+              <tr>
+                <th>Kalem</th>
+                <th>Miktar</th>
+                <th>Tutar</th>
+              </tr>
+            </thead>
+            <tbody id="costTableBody"></tbody>
+          </table>
+        </div>
+
+        <div class="cost-summary-box">
+          <div class="cost-row">
+            <span>Ara Toplam</span>
+            <span id="costSubtotal" class="cost-value">—</span>
+          </div>
+          <div class="cost-row">
+            <span id="costProfitLabel">Kar (%15)</span>
+            <span id="costProfit" class="cost-value">—</span>
+          </div>
+          <div class="cost-row cost-row-total">
+            <span>KDV Hariç Toplam</span>
+            <span id="costGrandTotal" class="cost-value highlight">—</span>
+          </div>
+          <div class="cost-row">
+            <span>KDV (%20)</span>
+            <span id="costKDV" class="cost-value">—</span>
+          </div>
+          <div class="cost-row cost-row-grand">
+            <span>KDV Dahil TOPLAM</span>
+            <span id="costGrandTotalKDV" class="cost-value highlight">—</span>
+          </div>
+          <div class="cost-meta">
+            <span>Toplam Ağırlık (fire dahil): <strong id="costTotalWeight">—</strong></span>
+            <span>Kg başına: <strong id="costPerKgTotal">—</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="print-section">
+        <div class="action-buttons">
+          <button id="btnPrint" class="btn btn-secondary">🖨️ Yazdır / PDF</button>
+          <button id="btnReset" class="btn btn-primary">🔄 Yeni Proje</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+  <script src="js/app.js"></script>
+</body>
+</html>
